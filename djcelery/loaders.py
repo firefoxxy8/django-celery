@@ -57,6 +57,9 @@ class DjangoLoader(BaseLoader):
         except (TypeError, AttributeError):
             pass
 
+    def on_task_init(self, task_id, task):  
+        self.close_database()  
+
     def on_process_cleanup(self):
         """Does everything necessary for Django to work in a long-living,
         multiprocessing environment.
