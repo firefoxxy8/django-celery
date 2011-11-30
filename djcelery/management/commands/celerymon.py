@@ -3,16 +3,18 @@
 Start the celery clock service from the Django management command.
 
 """
+from __future__ import absolute_import
+
 import sys
 
 from djcelery.app import app
 from djcelery.management.base import CeleryCommand
 
 try:
-    from celerymonitor.bin.celerymond import MonitorCommand
-    monitor = MonitorCommand(app=app)
+    from celerymon.bin.celerymon import MonitorCommand
+    mon = MonitorCommand(app=app)
 except ImportError:
-    monitor = None
+    mon = None
 
 MISSING = """
 You don't have celerymon installed, please install it by running the following
@@ -28,13 +30,13 @@ or if you're still using easy_install (shame on you!)
 
 class Command(CeleryCommand):
     """Run the celery monitor."""
-    option_list = (CeleryCommand.option_list +
-                   (monitor and monitor.get_options() or ()))
+    options = (CeleryCommand.options
+               + (mon and mon.get_options() + mon.preload_options or ()))
     help = 'Run the celery monitor'
 
     def handle(self, *args, **options):
         """Handle the management command."""
-        if monitor is None:
+        if mon is None:
             sys.stderr.write(MISSING)
         else:
-            monitor.run(**options)
+            mon.run(**options)

@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import warnings
 
 from functools import wraps
@@ -13,6 +15,8 @@ except ImportError:  # pre-Django 1.2
 from django.db import models
 from django.db.models.query import QuerySet
 from django.conf import settings
+
+from celery.utils.timeutils import maybe_timedelta
 
 
 class TxIsolationWarning(UserWarning):
@@ -87,6 +91,12 @@ class ExtendedManager(models.Manager):
             return connections[self.db]
         return connection
 
+    def current_engine(self):
+        try:
+            return settings.DATABASES[self.db]["ENGINE"]
+        except AttributeError:
+            return settings.DATABASE_ENGINE
+
 
 class ResultManager(ExtendedManager):
 
@@ -154,7 +164,7 @@ class TaskManager(ResultManager):
                                                "traceback": traceback})
 
     def warn_if_repeatable_read(self):
-        if settings.DATABASE_ENGINE.lower() == "mysql":
+        if "mysql" in self.current_engine().lower():
             cursor = self.connection_for_read().cursor()
             if cursor.execute("SELECT @@tx_isolation"):
                 isolation = cursor.fetchone()[0]
@@ -200,12 +210,13 @@ class TaskStateManager(ExtendedManager):
     def active(self):
         return self.filter(hidden=False)
 
-    def expired(self, states, expires):
+    def expired(self, states, expires, nowfun=datetime.now):
         return self.filter(state__in=states,
-                           tstamp__lte=datetime.now() - expires)
+                           tstamp__lte=nowfun() - maybe_timedelta(expires))
 
     def expire_by_states(self, states, expires):
-        return self.expired(states, expires).update(hidden=True)
+        if expires is not None:
+            return self.expired(states, expires).update(hidden=True)
 
     def purge(self):
         cursor = self.connection_for_write().cursor()

@@ -1,7 +1,10 @@
-from celery.app import default_app
-from celery.backends.base import BaseDictBackend
+from __future__ import absolute_import
 
-from djcelery.models import TaskMeta, TaskSetMeta
+from celery import current_app
+from celery.backends.base import BaseDictBackend
+from celery.utils.timeutils import maybe_timedelta
+
+from ..models import TaskMeta, TaskSetMeta
 
 
 class DatabaseBackend(BaseDictBackend):
@@ -12,7 +15,11 @@ class DatabaseBackend(BaseDictBackend):
     """
     TaskModel = TaskMeta
     TaskSetModel = TaskSetMeta
-    expires = default_app.conf.CELERY_TASK_RESULT_EXPIRES
+
+    expires = current_app.conf.CELERY_TASK_RESULT_EXPIRES
+    create_django_tables = True
+
+    subpolling_interval = 0.5
 
     def _store_result(self, task_id, result, status, traceback=None):
         """Store return value and status of an executed task."""
@@ -46,5 +53,6 @@ class DatabaseBackend(BaseDictBackend):
 
     def cleanup(self):
         """Delete expired metadata."""
+        expires = maybe_timedelta(self.expires)
         for model in self.TaskModel, self.TaskSetModel:
-            model._default_manager.delete_expired(self.expires)
+            model._default_manager.delete_expired(expires)

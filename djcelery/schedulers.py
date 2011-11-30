@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import logging
 
 from datetime import datetime
@@ -11,8 +13,8 @@ from celery import schedules
 from celery.beat import Scheduler, ScheduleEntry
 from celery.utils.encoding import safe_str, safe_repr
 
-from djcelery.models import (PeriodicTask, PeriodicTasks,
-                             CrontabSchedule, IntervalSchedule)
+from .models import (PeriodicTask, PeriodicTasks,
+                     CrontabSchedule, IntervalSchedule)
 
 
 class ModelEntry(ScheduleEntry):
@@ -58,6 +60,7 @@ class ModelEntry(ScheduleEntry):
         self.model.total_run_count += 1
         self.model.no_changes = True
         return self.__class__(self.model)
+    __next__ = next  # for 2to3
 
     def save(self):
         # Object may not be synchronized, so only
